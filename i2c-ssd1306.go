@@ -50,6 +50,17 @@ const (
     SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL  = 0x2A
 )
 
+const (
+    SSD1306_PAGE_START_ADDRESS_0 = 0xB0
+    SSD1306_PAGE_START_ADDRESS_1 = 0xB1
+    SSD1306_PAGE_START_ADDRESS_2 = 0xB2
+    SSD1306_PAGE_START_ADDRESS_3 = 0xB3
+    SSD1306_PAGE_START_ADDRESS_4 = 0xB4
+    SSD1306_PAGE_START_ADDRESS_5 = 0xB5
+    SSD1306_PAGE_START_ADDRESS_6 = 0xB6
+    SSD1306_PAGE_START_ADDRESS_7 = 0xB7
+)
+
 type PixelType uint8;
 
 const (
@@ -109,6 +120,18 @@ func (oled *SSD1306) initConnection() error {
 
 func (oled *SSD1306) writeCommand(command int) (int, error) {
     return oled.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, byte(command)})
+}
+
+func (oled *SSD1306) writeCommands(commands ...int) error {
+    var command int
+    var err error
+    for _, command = range commands {
+        _, err = oled.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, byte(command)})
+        if err != nil {
+            return err
+        }
+    }
+    return nil
 }
 
 func (oled *SSD1306) writeData(command int) (int, error) {
@@ -236,16 +259,18 @@ func (oled *SSD1306) getPageAddress(x, y uint8) PageAddressType {
 
 func (oled *SSD1306) Clear() error {
     var err error
-    _, err = oled.writeCommand(SSD1306_MEMORY_MODE)
+    err = oled.writeCommands(
+        SSD1306_MEMORY_MODE,
+        0x00,
+        SSD1306_PAGE_START_ADDRESS_0,
+        0x00,
+        0x10,
+     )
     if err != nil {
         return err
     }
-    _, err = oled.writeCommand(0x00)
-    if err != nil {
-        return err
-    }
-    count := int(oled.width * oled.height) / 8
 
+    count := int(oled.width) * int(oled.height) / 8
     for i := 0; i < count; i++ {
         _, err = oled.writeData(0x0)
         if err != nil {
