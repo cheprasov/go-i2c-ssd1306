@@ -1,4 +1,4 @@
-//package i2c_ssd1306
+//package i2c_oled
 package main
 
 import (
@@ -50,6 +50,20 @@ const (
     SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL  = 0x2A
 )
 
+type PixelType uint8;
+
+const (
+    PIXEL_TYPE_NULL  PixelType = 0
+    PIXEL_TYPE_WHITE PixelType = 1
+    PIXEL_TYPE_BLACK PixelType = 1
+)
+
+type PageAddressType struct {
+    PageStart        uint8
+    LowerStartColumn uint8
+    UpperStartColumn uint8
+}
+
 type SSD1306 struct {
     i2cAddress uint8
     i2cBus     uint8
@@ -63,148 +77,191 @@ type SSD1306 struct {
 func NewSSD1306(i2cAddress, i2cBus, width, height uint8) (*SSD1306, error) {
     var err error
 
-    ssd1306 := &SSD1306{
+    oled := &SSD1306{
         i2cAddress: i2cAddress,
         i2cBus:     i2cBus,
         width:      width,
         height:     height,
         buffer:     [][]bool{},
     }
-    err = ssd1306.initConnection()
+    err = oled.initConnection()
     if err != nil {
         return nil, err
     }
 
-    err = ssd1306.initDisplay()
+    err = oled.initDisplay()
     if err != nil {
         return nil, err
     }
 
-    return ssd1306, nil
+    return oled, nil
 }
 
 // Init i2c connection
-func (ssd1306 *SSD1306) initConnection() error {
-    connect, err := i2c.NewI2C(ssd1306.i2cAddress, int(ssd1306.i2cBus))
+func (oled *SSD1306) initConnection() error {
+    connect, err := i2c.NewI2C(oled.i2cAddress, int(oled.i2cBus))
     if err != nil {
         return err
     }
-    ssd1306.i2cConnect = connect
+    oled.i2cConnect = connect
     return nil
 }
 
-func (ssd1306 *SSD1306) writeCommand(command int) (int, error) {
-    return ssd1306.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, byte(command)})
+func (oled *SSD1306) writeCommand(command int) (int, error) {
+    return oled.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, byte(command)})
 }
 
-func (ssd1306 *SSD1306) writeData(command int) (int, error) {
-    return ssd1306.i2cConnect.WriteBytes([]byte{SSD1306_DATA, byte(command)})
+func (oled *SSD1306) writeData(command int) (int, error) {
+    return oled.i2cConnect.WriteBytes([]byte{SSD1306_DATA, byte(command)})
 }
 
 // Init i2c Oled Display
-func (ssd1306 *SSD1306) initDisplay() error {
+func (oled *SSD1306) initDisplay() error {
     var err error
-    _, err = ssd1306.writeCommand(SSD1306_DISPLAY_OFF)
+    _, err = oled.writeCommand(SSD1306_DISPLAY_OFF)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_DISPLAY_CLOCK_DIV)
+    _, err = oled.writeCommand(SSD1306_SET_DISPLAY_CLOCK_DIV)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x80)
+    _, err = oled.writeCommand(0x80)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_MULTIPLEX)
+    _, err = oled.writeCommand(SSD1306_SET_MULTIPLEX)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x3F)
+    _, err = oled.writeCommand(0x3F)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_DISPLAY_OFFSET)
+    _, err = oled.writeCommand(SSD1306_SET_DISPLAY_OFFSET)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x0)
+    _, err = oled.writeCommand(0x0)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_START_LINE | 0x0)
+    _, err = oled.writeCommand(SSD1306_SET_START_LINE | 0x0)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_CHARGE_PUMP)
+    _, err = oled.writeCommand(SSD1306_CHARGE_PUMP)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x14)
+    _, err = oled.writeCommand(0x14)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_MEMORY_MODE)
+    _, err = oled.writeCommand(SSD1306_MEMORY_MODE)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x00)
+    _, err = oled.writeCommand(0x00)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SEG_REMAP | 0x1)
+    _, err = oled.writeCommand(SSD1306_SEG_REMAP | 0x1)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_COM_SCAN_DEC)
+    _, err = oled.writeCommand(SSD1306_COM_SCAN_DEC)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_COM_PINS)
+    _, err = oled.writeCommand(SSD1306_SET_COM_PINS)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x12)
+    _, err = oled.writeCommand(0x12)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_CONTRAST)
+    _, err = oled.writeCommand(SSD1306_SET_CONTRAST)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0xCF)
+    _, err = oled.writeCommand(0xCF)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_PRECHARGE)
+    _, err = oled.writeCommand(SSD1306_SET_PRECHARGE)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0xF1)
+    _, err = oled.writeCommand(0xF1)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_SET_VCOM_DETECT)
+    _, err = oled.writeCommand(SSD1306_SET_VCOM_DETECT)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(0x40)
+    _, err = oled.writeCommand(0x40)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_DISPLAY_ALL_ON_RESUME)
+    _, err = oled.writeCommand(SSD1306_DISPLAY_ALL_ON_RESUME)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_NORMAL_DISPLAY)
+    _, err = oled.writeCommand(SSD1306_NORMAL_DISPLAY)
     if err != nil {
         return err
     }
-    _, err = ssd1306.writeCommand(SSD1306_DISPLAY_ON);
+    _, err = oled.writeCommand(SSD1306_DISPLAY_ON)
+    if err != nil {
+        return err
+    }
+    err = oled.Clear()
     if err != nil {
         return err
     }
 
+    return nil
+}
+
+func (oled *SSD1306) getPageAddress(x, y uint8) PageAddressType {
+    return PageAddressType {
+        LowerStartColumn: x | 0x1,
+        UpperStartColumn: (x | 0xF0) >> 4,
+        PageStart: oled.height / 8,
+    }
+}
+
+func (oled *SSD1306) Clear() error {
+    var err error
+    _, err = oled.writeCommand(SSD1306_MEMORY_MODE)
+    if err != nil {
+        return err
+    }
+    _, err = oled.writeCommand(0x00)
+    if err != nil {
+        return err
+    }
+    count := int(oled.width * oled.height) / 8
+
+    for i := 0; i < count; i++ {
+        _, err = oled.writeData(0x0)
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
+func (oled *SSD1306) eachPixel(pixelFunc func(x, y uint8) PixelType) error {
+    var x, y uint8
+    for x = 0; x < oled.width; x++ {
+        for y = 0; y < oled.height; y += 8 {
+        }
+    }
     return nil
 }
 
