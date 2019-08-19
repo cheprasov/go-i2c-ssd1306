@@ -229,11 +229,10 @@ func main() {
         log.Fatal(err)
     }
 
-    oled.writeCommands(0x20, 2)
-    oled.writeCommand(2)
-    oled.writeCommand(0xB2)
+    oled.writeCommands(0x20, 0)
+    oled.writeCommand(0xB0)
     oled.writeCommand(0x00)
-    oled.writeCommand(0x12)
+    oled.writeCommand(0x10)
 
     for _, letter := range font.OledASCIITable {
         oled.writeDataBulk(letter);
