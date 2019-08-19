@@ -236,7 +236,8 @@ func main() {
     oled.writeCommand(0x12)
 
     for _, letter := range font.OledASCIITable {
-        oled.writeDataBulk(letter[:]);
+        oled.writeDataBulk(letter);
+        oled.writeDataBulk([]byte{0x0});
         time.Sleep(1 * time.Second)
     }
 
