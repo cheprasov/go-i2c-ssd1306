@@ -278,6 +278,11 @@ func main() {
     oled.RowText(0, "Hello from Go!")
     oled.RowText(1, "1234567890")
     oled.RowText(2, "Русский текст")
+    oled.RowText(3, "Some line")
+    oled.RowText(4, "acheprasov@gmail.com")
+    oled.RowText(5, "https://cheprasov.com/")
+    oled.RowText(6, "IP: 192.168.2.216")
+    oled.RowText(7, "Temp: 30˚C")
 
     time.Sleep(10 * time.Second)
 
