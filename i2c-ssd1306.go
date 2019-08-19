@@ -3,6 +3,7 @@ package main
 
 import (
     "./font"
+    "fmt"
     "github.com/cheprasov/go-i2c"
     "log"
     "time"
@@ -28,8 +29,8 @@ const (
     SSD1306_SET_DISPLAY_CLOCK_DIV = 0xD5
     SSD1306_SET_PRECHARGE         = 0xD9
     SSD1306_SET_MULTIPLEX         = 0xA8
-    SSD1306_SETLOWCOLUMN          = 0x00
-    SSD1306_SETHIGHCOLUMN         = 0x10
+    SSD1306_SET_LOW_COLUMN        = 0x00
+    SSD1306_SET_HIGH_COLUMN       = 0x10
     SSD1306_SET_START_LINE        = 0x40
     SSD1306_MEMORY_MODE           = 0x20
     SSD1306_COLUMNADDR            = 0x21
@@ -60,6 +61,10 @@ const (
     SSD1306_PAGE_START_ADDRESS_5 = 0xB5
     SSD1306_PAGE_START_ADDRESS_6 = 0xB6
     SSD1306_PAGE_START_ADDRESS_7 = 0xB7
+
+    SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING = 0x0;
+    SSD1306_MEMORY_MODE_VERTICAL_ADDRESSING = 0x1;
+    SSD1306_MEMORY_MODE_PAGE_ADDRESSING = 0x2;
 )
 
 type PixelType uint8;
@@ -184,8 +189,8 @@ func (oled *SSD1306) initDisplay() error {
 
 func (oled *SSD1306) getPageAddress(x, y uint8) PageAddressType {
     return PageAddressType{
-        LowerStartColumn: x | 0x1,
-        UpperStartColumn: (x | 0xF0) >> 4,
+        LowerStartColumn: x & 0xF,
+        UpperStartColumn: (x & 0xF0) >> 4,
         PageStart:        oled.height / 8,
     }
 }
@@ -193,8 +198,7 @@ func (oled *SSD1306) getPageAddress(x, y uint8) PageAddressType {
 func (oled *SSD1306) Clear() error {
     var err error
     err = oled.writeCommands(
-        SSD1306_MEMORY_MODE,
-        0x00,
+        SSD1306_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
         SSD1306_PAGE_START_ADDRESS_0,
         0x00,
         0x10,
@@ -223,22 +227,57 @@ func (oled *SSD1306) eachPixel(pixelFunc func(x, y uint8) PixelType) error {
     return nil
 }
 
+
+func (oled *SSD1306) setPageCursor(page, offset uint8) error {
+    if page > oled.height / 8 - 1 {
+        return fmt.Errorf("incorrect page")
+    }
+
+    return oled.writeCommands(
+        SSD1306_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
+        SSD1306_PAGE_START_ADDRESS_0 + page,
+        SSD1306_SET_LOW_COLUMN + (offset & 0xF),
+        SSD1306_SET_HIGH_COLUMN + ((offset & 0xF0) >> 4),
+    )
+}
+
+func (oled *SSD1306) RowText(row uint8, text string) error {
+    var err error
+    err = oled.setPageCursor(row, 0)
+    if err != nil {
+        return err
+    }
+
+    if text == "" {
+        return nil
+    }
+
+    var r rune
+    var charBytes []byte
+    var isOk bool
+    for _ , r = range []rune(text) {
+        charBytes, isOk = font.Chars[r]
+        if isOk == false {
+            charBytes = font.CharUnknown
+        }
+        err = oled.writeDataBulk(charBytes)
+        if err != nil {
+            return err
+        }
+    }
+
+    return nil
+}
+
 func main() {
     oled, err := NewSSD1306(0x3C, 1, 128, 64)
     if err != nil {
         log.Fatal(err)
     }
 
-    oled.writeCommands(0x20, 0)
-    oled.writeCommand(0xB0)
-    oled.writeCommand(0x00)
-    oled.writeCommand(0x10)
-
-    for _, letter := range font.OledASCIITable {
-        oled.writeDataBulk(letter);
-        oled.writeDataBulk([]byte{0x0});
-        time.Sleep(1 * time.Second)
-    }
+    oled.RowText(0, "Hello from Go!")
+    oled.RowText(1, "1234567890")
+    oled.RowText(2, "Русский текст")
 
     time.Sleep(10 * time.Second)
 
