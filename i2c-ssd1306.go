@@ -246,9 +246,9 @@ func (oled *SSD1306) setPageCursor(page, offset uint8) error {
     )
 }
 
-func (oled *SSD1306) RowText(row uint8, text string) error {
+func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
     var err error
-    err = oled.setPageCursor(row, 0)
+    err = oled.setPageCursor(row, offset)
     if err != nil {
         return err
     }
@@ -281,14 +281,16 @@ func main() {
     }
     defer oled.Close()
 
-    oled.RowText(0, "_")
+    oled.PrintText("Init", 4, 64)
+
+    time.Sleep(2 * time.Second)
 
     for _, letter := range font.Chars {
         oled.writeDataBulk(letter)
         time.Sleep(time.Second / 10)
     }
 
-    oled.RowText(0, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog")
+    oled.PrintText("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog", 0, 64)
     time.Sleep(30 * time.Second)
 
     oled.writeCommand(SSD1306_DISPLAY_OFF)
