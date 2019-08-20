@@ -275,16 +275,15 @@ func main() {
         log.Fatal(err)
     }
 
-    oled.RowText(0, "Hello from Go!")
-    oled.RowText(1, "1234567890")
-    oled.RowText(2, "Русский текст")
-    oled.RowText(3, "Some line")
-    oled.RowText(4, "acheprasov@gmail.com")
-    oled.RowText(5, "https://cheprasov.com/")
-    oled.RowText(6, "IP: 192.168.2.216")
-    oled.RowText(7, "Temp: 30˚C")
+    oled.RowText(0, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog")
+    oled.RowText(1, "@")
 
-    time.Sleep(10 * time.Second)
+    for _, letter := range font.Chars {
+        oled.writeDataBulk(letter)
+        time.Sleep(time.Second / 10)
+    }
+
+    time.Sleep(30 * time.Second)
 
     oled.writeCommand(SSD1306_DISPLAY_OFF)
 }
