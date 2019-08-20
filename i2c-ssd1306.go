@@ -124,6 +124,11 @@ func (oled *SSD1306) initConnection() error {
     return nil
 }
 
+// Init i2c connection
+func (oled *SSD1306) Close() error {
+    return oled.i2cConnect.Close()
+}
+
 func (oled *SSD1306) writeCommand(command byte) (int, error) {
     return oled.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, command})
 }
@@ -274,15 +279,16 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
+    defer oled.Close()
 
-    oled.RowText(0, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog")
-    oled.RowText(1, "@")
+    oled.RowText(0, "_")
 
     for _, letter := range font.Chars {
         oled.writeDataBulk(letter)
         time.Sleep(time.Second / 10)
     }
 
+    oled.RowText(0, "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog")
     time.Sleep(30 * time.Second)
 
     oled.writeCommand(SSD1306_DISPLAY_OFF)
