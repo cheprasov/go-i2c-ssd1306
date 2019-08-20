@@ -5,7 +5,12 @@ import (
     "./font"
     "fmt"
     "github.com/cheprasov/go-i2c"
+    "image"
+    "image/color"
+    "image/png"
+    "io/ioutil"
     "log"
+    "strings"
     "time"
 )
 
@@ -63,8 +68,8 @@ const (
     SSD1306_PAGE_START_ADDRESS_7 = 0xB7
 
     SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING = 0x0;
-    SSD1306_MEMORY_MODE_VERTICAL_ADDRESSING = 0x1;
-    SSD1306_MEMORY_MODE_PAGE_ADDRESSING = 0x2;
+    SSD1306_MEMORY_MODE_VERTICAL_ADDRESSING   = 0x1;
+    SSD1306_MEMORY_MODE_PAGE_ADDRESSING       = 0x2;
 )
 
 type PixelType uint8;
@@ -87,7 +92,7 @@ type SSD1306 struct {
     i2cConnect *i2c.I2C
     width      uint8
     height     uint8
-    buffer     [][]bool
+    pagesCount uint8
 }
 
 // Create and init new instance of SSD1306 Oled Display
@@ -99,7 +104,7 @@ func NewSSD1306(i2cAddress, i2cBus, width, height uint8) (*SSD1306, error) {
         i2cBus:     i2cBus,
         width:      width,
         height:     height,
-        buffer:     [][]bool{},
+        pagesCount: height / 8,
     }
     err = oled.initConnection()
     if err != nil {
@@ -112,6 +117,18 @@ func NewSSD1306(i2cAddress, i2cBus, width, height uint8) (*SSD1306, error) {
     }
 
     return oled, nil
+}
+
+func (oled *SSD1306) GetWidth() uint8 {
+    return oled.width
+}
+
+func (oled *SSD1306) GetHeight() uint8 {
+    return oled.height
+}
+
+func (oled *SSD1306) GetPagesCount() uint8 {
+    return oled.pagesCount
 }
 
 // Init i2c connection
@@ -212,7 +229,7 @@ func (oled *SSD1306) Clear() error {
         return err
     }
 
-    count := int(oled.width) * int(oled.height) / 8
+    count := int(oled.width) * int(oled.pagesCount)
     for i := 0; i < count; i++ {
         _, err = oled.writeData(0x0)
         if err != nil {
@@ -232,17 +249,16 @@ func (oled *SSD1306) eachPixel(pixelFunc func(x, y uint8) PixelType) error {
     return nil
 }
 
-
 func (oled *SSD1306) setPageCursor(page, offset uint8) error {
-    if page > oled.height / 8 - 1 {
+    if page > oled.pagesCount-1 {
         return fmt.Errorf("incorrect page")
     }
 
     return oled.writeCommands(
         SSD1306_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
-        SSD1306_PAGE_START_ADDRESS_0 + page,
-        SSD1306_SET_LOW_COLUMN + (offset & 0xF),
-        SSD1306_SET_HIGH_COLUMN + ((offset & 0xF0) >> 4),
+        SSD1306_PAGE_START_ADDRESS_0+page,
+        SSD1306_SET_LOW_COLUMN+(offset&0xF),
+        SSD1306_SET_HIGH_COLUMN+((offset&0xF0)>>4),
     )
 }
 
@@ -260,7 +276,7 @@ func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
     var r rune
     var charBytes []byte
     var isOk bool
-    for _ , r = range []rune(text) {
+    for _, r = range []rune(text) {
         charBytes, isOk = font.Chars[r]
         if isOk == false {
             charBytes = font.CharUnknown
@@ -274,24 +290,69 @@ func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
     return nil
 }
 
-func main() {
+func (oled *SSD1306) DrawImage(img image.Image) error {
+    var err error
+    err = oled.setPageCursor(0, 0)
+    if err != nil {
+        return err
+    }
+
+    var page, x, y, pageY, pixel uint8;
+    for page = 0; page < oled.pagesCount; page++ {
+        for x = 0; x < oled.width; x++ {
+            pixel = 0
+            for pageY = 0; pageY < 8; pageY++ {
+                y = page * 8 + pageY;
+                clr := color.GrayModel.Convert(img.At(int(x), int(y))).(color.Gray)
+                if clr.Y < 127 {
+                    continue;
+                }
+                pixel = pixel | (0x01 << pageY)
+            }
+            _, err := oled.writeData(pixel)
+            if err != nil {
+                return err
+            }
+        }
+    }
+
+    return nil
+}
+
+func gopherPNG() ([]byte, error) {
+    return ioutil.ReadFile("./gopher.png")
+}
+
+func draw(oled *SSD1306) {
+    // This example uses png.Decode which can only decode PNG images.
+    // Consider using the general image.Decode as it can sniff and decode any registered image format.
+    file, err := gopherPNG()
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    img, err := png.Decode(strings.NewReader(string(file)))
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    oled.DrawImage(img)
+}
+
+func main2() {
     oled, err := NewSSD1306(0x3C, 1, 128, 64)
     if err != nil {
         log.Fatal(err)
     }
     defer oled.Close()
 
-    oled.PrintText("Init", 4, 64)
+    oled.PrintText("Init", 4, 54)
 
-    time.Sleep(2 * time.Second)
+    time.Sleep(1 * time.Second)
 
-    for _, letter := range font.Chars {
-        oled.writeDataBulk(letter)
-        time.Sleep(time.Second / 10)
-    }
+    draw(oled)
 
-    oled.PrintText("THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG the quick brown fox jumps over the lazy dog", 0, 64)
-    time.Sleep(30 * time.Second)
+    time.Sleep(10 * time.Second)
 
     oled.writeCommand(SSD1306_DISPLAY_OFF)
 }
