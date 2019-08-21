@@ -2,9 +2,6 @@
 package main
 
 import (
-    "./font"
-    "fmt"
-    "github.com/cheprasov/go-i2c"
     "image"
     "image/color"
     "image/png"
@@ -12,40 +9,49 @@ import (
     "log"
     "strings"
     "time"
+
+    "./font"
+    "github.com/cheprasov/go-i2c"
+    "go-i2c-ssd1306/helpers"
 )
 
 const (
-    SSD1306_COMMAND    = 0x80
-    SSD1306_DATA       = 0xC0
-    SSD1306_MULTI_DATA = 0x40
+    SSD1306_CODC_COMMAND    = 0x80
+    SSD1306_CODC_DATA       = 0xC0
+    SSD1306_CODC_MULTI_DATA = 0x40
 )
+
 const (
-    SSD1306_I2C_ADDRESS           = 0x3C // 011110+SA0+RW - 0x3C or 0x3D
-    SSD1306_SET_CONTRAST          = 0x81
-    SSD1306_DISPLAY_ALL_ON_RESUME = 0xA4
-    SSD1306_DISPLAYALLON          = 0xA5
-    SSD1306_NORMAL_DISPLAY        = 0xA6
-    SSD1306_INVERTDISPLAY         = 0xA7
-    SSD1306_DISPLAY_OFF           = 0xAE
-    SSD1306_DISPLAY_ON            = 0xAF
-    SSD1306_SET_DISPLAY_OFFSET    = 0xD3
-    SSD1306_SET_COM_PINS          = 0xDA
-    SSD1306_SET_VCOM_DETECT       = 0xDB
-    SSD1306_SET_DISPLAY_CLOCK_DIV = 0xD5
-    SSD1306_SET_PRECHARGE         = 0xD9
-    SSD1306_SET_MULTIPLEX         = 0xA8
-    SSD1306_SET_LOW_COLUMN        = 0x00
-    SSD1306_SET_HIGH_COLUMN       = 0x10
-    SSD1306_SET_START_LINE        = 0x40
-    SSD1306_MEMORY_MODE           = 0x20
-    SSD1306_COLUMNADDR            = 0x21
-    SSD1306_PAGEADDR              = 0x22
-    SSD1306_COMSCANINC            = 0xC0
-    SSD1306_COM_SCAN_DEC          = 0xC8
-    SSD1306_SEG_REMAP             = 0xA0
-    SSD1306_CHARGE_PUMP           = 0x8D
-    SSD1306_EXTERNALVCC           = 0x1
-    SSD1306_SWITCHCAPVCC          = 0x2
+    SSD1306_PAGE_SIZE = 8
+)
+
+const (
+    SSD1306_CMD_I2C_ADDRESS           = 0x3C // 011110+SA0+RW - 0x3C or 0x3D
+    SSD1306_CMD_SET_CONTRAST          = 0x81
+    SSD1306_CMD_DISPLAY_ALL_ON_RESUME = 0xA4
+    SSD1306_CMD_DISPLAY_ALL_ON        = 0xA5
+    SSD1306_CMD_NORMAL_DISPLAY        = 0xA6
+    SSD1306_CMD_INVERT_DISPLAY        = 0xA7
+    SSD1306_CMD_DISPLAY_OFF           = 0xAE
+    SSD1306_CMD_DISPLAY_ON            = 0xAF
+    SSD1306_CMD_SET_DISPLAY_OFFSET    = 0xD3
+    SSD1306_CMD_SET_COM_PINS          = 0xDA
+    SSD1306_CMD_SET_VCOM_DETECT       = 0xDB
+    SSD1306_CMD_SET_DISPLAY_CLOCK_DIV = 0xD5
+    SSD1306_CMD_SET_PRECHARGE         = 0xD9
+    SSD1306_CMD_SET_MULTIPLEX         = 0xA8
+    SSD1306_CMD_SET_LOW_COLUMN        = 0x00
+    SSD1306_CMD_SET_HIGH_COLUMN       = 0x10
+    SSD1306_CMD_SET_START_LINE        = 0x40
+    SSD1306_CMD_MEMORY_MODE           = 0x20
+    SSD1306_CMD_SET_COLUMN_ADDRESS    = 0x21
+    SSD1306_CMD_SET_PAGE_ADDRESS      = 0x22
+    SSD1306_CMD_COM_SCAN_INC          = 0xC0
+    SSD1306_CMD_COM_SCAN_DEC          = 0xC8
+    SSD1306_CMD_SEG_REMAP             = 0xA0
+    SSD1306_CMD_CHARGE_PUMP           = 0x8D
+    SSD1306_CMD_EXTERNAL_VCC          = 0x1
+    SSD1306_CMD_SWITCH_CAP_VCC        = 0x2
 
     // Scrolling constants
     SSD1306_ACTIVATE_SCROLL                      = 0x2F
@@ -74,16 +80,14 @@ const (
 
 type PixelType uint8;
 
-const (
-    PIXEL_TYPE_NULL  PixelType = 0
-    PIXEL_TYPE_WHITE PixelType = 1
-    PIXEL_TYPE_BLACK PixelType = 1
-)
-
 type PageAddressType struct {
-    PageStart        uint8
-    LowerStartColumn uint8
-    UpperStartColumn uint8
+    PageStart          uint8
+    PageAddressStart   uint8
+    PageAddressEnd     uint8
+    LowerStartColumn   uint8
+    UpperStartColumn   uint8
+    ColumnAddressStart uint8
+    ColumnAddressEnd   uint8
 }
 
 type SSD1306 struct {
@@ -104,7 +108,7 @@ func NewSSD1306(i2cAddress, i2cBus, width, height uint8) (*SSD1306, error) {
         i2cBus:     i2cBus,
         width:      width,
         height:     height,
-        pagesCount: height / 8,
+        pagesCount: height / SSD1306_PAGE_SIZE,
     }
     err = oled.initConnection()
     if err != nil {
@@ -147,7 +151,7 @@ func (oled *SSD1306) Close() error {
 }
 
 func (oled *SSD1306) writeCommand(command byte) (int, error) {
-    return oled.i2cConnect.WriteBytes([]byte{SSD1306_COMMAND, command})
+    return oled.i2cConnect.WriteBytes([]byte{SSD1306_CODC_COMMAND, command})
 }
 
 func (oled *SSD1306) writeCommands(commands ...byte) error {
@@ -163,7 +167,7 @@ func (oled *SSD1306) writeCommands(commands ...byte) error {
 }
 
 func (oled *SSD1306) writeData(data byte) (int, error) {
-    return oled.i2cConnect.WriteBytes([]byte{SSD1306_DATA, data})
+    return oled.i2cConnect.WriteBytes([]byte{SSD1306_CODC_DATA, data})
 }
 
 func (oled *SSD1306) writeDataBulk(dataBulk []byte) error {
@@ -181,22 +185,22 @@ func (oled *SSD1306) writeDataBulk(dataBulk []byte) error {
 // Init i2c Oled Display
 func (oled *SSD1306) initDisplay() error {
     err := oled.writeCommands(
-        SSD1306_DISPLAY_OFF,
-        SSD1306_SET_DISPLAY_CLOCK_DIV, 0x80,
-        SSD1306_SET_MULTIPLEX, 0x3F,
-        SSD1306_SET_DISPLAY_OFFSET, 0x0,
-        SSD1306_SET_START_LINE|0x0,
-        SSD1306_CHARGE_PUMP, 0x14,
-        SSD1306_MEMORY_MODE, 0x00,
-        SSD1306_SEG_REMAP|0x1,
-        SSD1306_COM_SCAN_DEC,
-        SSD1306_SET_COM_PINS, 0x12,
-        SSD1306_SET_CONTRAST, 0xCF,
-        SSD1306_SET_PRECHARGE, 0xF1,
-        SSD1306_SET_VCOM_DETECT, 0x40,
-        SSD1306_DISPLAY_ALL_ON_RESUME,
-        SSD1306_NORMAL_DISPLAY,
-        SSD1306_DISPLAY_ON,
+        SSD1306_CMD_DISPLAY_OFF,
+        SSD1306_CMD_SET_DISPLAY_CLOCK_DIV, 0x80,
+        SSD1306_CMD_SET_MULTIPLEX, 0x3F,
+        SSD1306_CMD_SET_DISPLAY_OFFSET, 0x0,
+        SSD1306_CMD_SET_START_LINE|0x0,
+        SSD1306_CMD_CHARGE_PUMP, 0x14,
+        SSD1306_CMD_MEMORY_MODE, 0x00,
+        SSD1306_CMD_SEG_REMAP|0x1,
+        SSD1306_CMD_COM_SCAN_DEC,
+        SSD1306_CMD_SET_COM_PINS, 0x12,
+        SSD1306_CMD_SET_CONTRAST, 0xCF,
+        SSD1306_CMD_SET_PRECHARGE, 0xF1,
+        SSD1306_CMD_SET_VCOM_DETECT, 0x40,
+        SSD1306_CMD_DISPLAY_ALL_ON_RESUME,
+        SSD1306_CMD_NORMAL_DISPLAY,
+        SSD1306_CMD_DISPLAY_ON,
     )
     if err != nil {
         return err
@@ -209,29 +213,65 @@ func (oled *SSD1306) initDisplay() error {
     return nil
 }
 
-func (oled *SSD1306) getPageAddress(x, y uint8) PageAddressType {
-    return PageAddressType{
-        LowerStartColumn: x & 0xF,
-        UpperStartColumn: (x & 0xF0) >> 4,
-        PageStart:        oled.height / 8,
+func (oled *SSD1306) getPageAddress(page, offset, pages, width uint8) *PageAddressType {
+    return &PageAddressType{
+        PageStart:          SSD1306_PAGE_START_ADDRESS_0 + page,
+        PageAddressStart:   page,
+        PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MaxUint8(page+pages, oled.pagesCount-1)),
+        LowerStartColumn:   offset & 0xF,
+        UpperStartColumn:   (offset & 0xF0) >> 4,
+        ColumnAddressStart: offset,
+        ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MaxUint8(offset+width, oled.width-1)),
     }
+}
+
+func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
+    var err error
+
+    switch true {
+    case pageAddress.PageAddressStart < pageAddress.PageAddressEnd:
+        err = oled.writeCommands(
+            SSD1306_CMD_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
+            SSD1306_CMD_SET_PAGE_ADDRESS, pageAddress.PageAddressStart, pageAddress.PageAddressEnd,
+        )
+    default:
+        err = oled.writeCommands(
+            SSD1306_CMD_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
+            pageAddress.PageStart,
+        )
+    }
+
+    if err != nil {
+        return err
+    }
+
+    switch true {
+    case pageAddress.ColumnAddressStart < pageAddress.ColumnAddressEnd:
+        err = oled.writeCommands(
+            SSD1306_CMD_SET_COLUMN_ADDRESS, pageAddress.ColumnAddressStart, pageAddress.ColumnAddressEnd,
+        )
+    default:
+        err = oled.writeCommands(pageAddress.LowerStartColumn, pageAddress.LowerStartColumn)
+    }
+
+    if err != nil {
+        return err
+    }
+
+    return nil
 }
 
 func (oled *SSD1306) Clear() error {
     var err error
-    err = oled.writeCommands(
-        SSD1306_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
-        SSD1306_PAGE_START_ADDRESS_0,
-        0x00,
-        0x10,
-    )
+
+    err = oled.setPageAddress(oled.getPageAddress(0, 0, 0, 0));
     if err != nil {
         return err
     }
 
     count := int(oled.width) * int(oled.pagesCount)
     for i := 0; i < count; i++ {
-        _, err = oled.writeData(0x0)
+        _, err = oled.writeData(0x00)
         if err != nil {
             return err
         }
@@ -240,25 +280,12 @@ func (oled *SSD1306) Clear() error {
     return nil
 }
 
-func (oled *SSD1306) eachPixel(pixelFunc func(x, y uint8) PixelType) error {
-    var x, y uint8
-    for x = 0; x < oled.width; x++ {
-        for y = 0; y < oled.height; y += 8 {
-        }
-    }
-    return nil
-}
-
 func (oled *SSD1306) setPageCursor(page, offset uint8) error {
-    if page > oled.pagesCount-1 {
-        return fmt.Errorf("incorrect page")
-    }
-
     return oled.writeCommands(
-        SSD1306_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
+        SSD1306_CMD_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
         SSD1306_PAGE_START_ADDRESS_0+page,
-        SSD1306_SET_LOW_COLUMN+(offset&0xF),
-        SSD1306_SET_HIGH_COLUMN+((offset&0xF0)>>4),
+        SSD1306_CMD_SET_LOW_COLUMN+(offset&0x0F),
+        SSD1306_CMD_SET_HIGH_COLUMN+((offset&0xF0)>>4),
     )
 }
 
@@ -290,26 +317,39 @@ func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
     return nil
 }
 
-func (oled *SSD1306) DrawImage(img image.Image) error {
+func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) error {
     var err error
-    err = oled.setPageCursor(0, 0)
+    var img = *imgPointer;
+    imgWidth := img.Bounds().Max.X - img.Bounds().Min.X
+    imgHeight := img.Bounds().Max.Y - img.Bounds().Min.Y
+
+    err = oled.setPageCursor(page, offset, )
     if err != nil {
         return err
     }
 
-    var page, x, y, pageY, pixel uint8;
-    for page = 0; page < oled.pagesCount; page++ {
-        for x = 0; x < oled.width; x++ {
-            pixel = 0
-            for pageY = 0; pageY < 8; pageY++ {
-                y = page * 8 + pageY;
-                clr := color.GrayModel.Convert(img.At(int(x), int(y))).(color.Gray)
-                if clr.Y < 127 {
-                    continue;
+    imgPages := uint8(imgHeight / SSD1306_PAGE_SIZE)
+    if imgHeight%SSD1306_PAGE_SIZE != 0 {
+        imgPages += 1
+    }
+
+    var currentPage, pixels, pageY uint8;
+    var x, y int;
+    for currentPage = 0; currentPage < imgPages; currentPage++ {
+        for x = 0; x < imgWidth; x++ {
+            pixels = 0
+            for pageY = 0; pageY < SSD1306_PAGE_SIZE; pageY++ {
+                y = int(currentPage*SSD1306_PAGE_SIZE + pageY);
+                if y >= imgHeight {
+                    continue
                 }
-                pixel = pixel | (0x01 << pageY)
+                clr := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
+                if clr.Y < 127 {
+                    continue
+                }
+                pixels = pixels | (0x01 << pageY)
             }
-            _, err := oled.writeData(pixel)
+            _, err := oled.writeData(pixels)
             if err != nil {
                 return err
             }
@@ -336,10 +376,10 @@ func draw(oled *SSD1306) {
         log.Fatal(err)
     }
 
-    oled.DrawImage(img)
+    oled.DrawImage(&img, 0, 0)
 }
 
-func main2() {
+func main() {
     oled, err := NewSSD1306(0x3C, 1, 128, 64)
     if err != nil {
         log.Fatal(err)
@@ -354,5 +394,5 @@ func main2() {
 
     time.Sleep(10 * time.Second)
 
-    oled.writeCommand(SSD1306_DISPLAY_OFF)
+    oled.writeCommand(SSD1306_CMD_DISPLAY_OFF)
 }
