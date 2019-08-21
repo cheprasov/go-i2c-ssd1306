@@ -330,9 +330,12 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) erro
         imgWidth = oled.width - offset
     }
 
-    imgPages := uint8(imgHeight / SSD1306_PAGE_SIZE)
+    imgPages := imgHeight / SSD1306_PAGE_SIZE
     if imgHeight%SSD1306_PAGE_SIZE != 0 {
         imgPages += 1
+    }
+    if imgHeight + page > SSD1306_PAGE_SIZE {
+        imgHeight = SSD1306_PAGE_SIZE - page
     }
 
     err = oled.setPageAddress(oled.getPageAddress(page, offset, imgPages, imgWidth));
