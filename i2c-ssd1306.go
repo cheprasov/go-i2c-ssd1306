@@ -325,7 +325,7 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset, pages, wid
     var err error
     var img = *imgPointer;
     if width == 0 {
-        width = uint8(img.Bounds().Max.X - img.Bounds().Min.X)
+        width = uint8(img.Bounds().Max.X - img.Bounds().Min.X + 1)
     }
     if width > oled.width {
         width = oled.width
@@ -334,7 +334,7 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset, pages, wid
         width = oled.width - offset
     }
 
-    imgHeight := uint8(img.Bounds().Max.Y - img.Bounds().Min.Y)
+    imgHeight := uint8(img.Bounds().Max.Y - img.Bounds().Min.Y + 1)
     if pages == 0 {
         pages = imgHeight / SSD1306_PAGE_SIZE
         if imgHeight%SSD1306_PAGE_SIZE != 0 {
@@ -350,12 +350,12 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset, pages, wid
         return err
     }
 
-    var currentPage, pixels, pageY, x, y uint8;
-    for currentPage = 0; currentPage < pages; currentPage++ {
+    var currentImgPage, pixels, pageY, x, y uint8;
+    for currentImgPage = 0; currentImgPage < pages; currentImgPage++ {
         for x = 0; x < width; x++ {
             pixels = 0
             for pageY = 0; pageY < SSD1306_PAGE_SIZE; pageY++ {
-                y = currentPage*SSD1306_PAGE_SIZE + pageY;
+                y = currentImgPage*SSD1306_PAGE_SIZE + pageY;
                 if y >= imgHeight {
                     continue
                 }
@@ -411,7 +411,7 @@ func main() {
 
     draw(oled)
 
-    time.Sleep(10 * time.Second)
+    time.Sleep(4 * time.Second)
 
     oled.writeCommand(SSD1306_CMD_DISPLAY_OFF)
 }
