@@ -11,8 +11,8 @@ import (
     "time"
 
     "./font"
+    "./helpers"
     "github.com/cheprasov/go-i2c"
-    "go-i2c-ssd1306/helpers"
 )
 
 const (
@@ -320,12 +320,14 @@ func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
 func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) error {
     var err error
     var img = *imgPointer;
-    imgWidth := img.Bounds().Max.X - img.Bounds().Min.X
-    imgHeight := img.Bounds().Max.Y - img.Bounds().Min.Y
+    imgWidth := uint8(img.Bounds().Max.X - img.Bounds().Min.X)
+    imgHeight := uint8(img.Bounds().Max.Y - img.Bounds().Min.Y)
 
-    err = oled.setPageCursor(page, offset, )
-    if err != nil {
-        return err
+    if imgWidth > oled.width {
+        imgWidth = oled.width
+    }
+    if imgWidth + offset > oled.width {
+        imgWidth = oled.width - offset
     }
 
     imgPages := uint8(imgHeight / SSD1306_PAGE_SIZE)
@@ -333,17 +335,21 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) erro
         imgPages += 1
     }
 
-    var currentPage, pixels, pageY uint8;
-    var x, y int;
+    err = oled.setPageAddress(oled.getPageAddress(page, offset, imgPages, imgWidth));
+    if err != nil {
+        return err
+    }
+
+    var currentPage, pixels, pageY, x, y uint8;
     for currentPage = 0; currentPage < imgPages; currentPage++ {
         for x = 0; x < imgWidth; x++ {
             pixels = 0
             for pageY = 0; pageY < SSD1306_PAGE_SIZE; pageY++ {
-                y = int(currentPage*SSD1306_PAGE_SIZE + pageY);
+                y = currentPage*SSD1306_PAGE_SIZE + pageY;
                 if y >= imgHeight {
                     continue
                 }
-                clr := color.GrayModel.Convert(img.At(x, y)).(color.Gray)
+                clr := color.GrayModel.Convert(img.At(int(x), int(y))).(color.Gray)
                 if clr.Y < 127 {
                     continue
                 }
