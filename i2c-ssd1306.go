@@ -360,7 +360,7 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) erro
 }
 
 func gopherPNG() ([]byte, error) {
-    return ioutil.ReadFile("./gopher.png")
+    return ioutil.ReadFile("./imgs/marilyn_monroe.png")
 }
 
 func draw(oled *SSD1306) {
@@ -376,7 +376,10 @@ func draw(oled *SSD1306) {
         log.Fatal(err)
     }
 
-    oled.DrawImage(&img, 0, 0)
+    err = oled.DrawImage(&img, 0, 0)
+    if err != nil {
+        log.Fatal(err)
+    }
 }
 
 func main() {
