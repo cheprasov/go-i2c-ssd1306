@@ -217,11 +217,11 @@ func (oled *SSD1306) getPageAddress(page, offset, pages, width uint8) *PageAddre
     return &PageAddressType{
         PageStart:          SSD1306_PAGE_START_ADDRESS_0 + page,
         PageAddressStart:   page,
-        PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MinUint8(page+pages, oled.pagesCount-1)),
+        PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MinUint8(page+pages-1, oled.pagesCount-1)),
         LowerStartColumn:   offset & 0xF,
         UpperStartColumn:   (offset & 0xF0) >> 4,
         ColumnAddressStart: offset,
-        ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MinUint8(offset+width, oled.width-1)),
+        ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MinUint8(offset+width-1, oled.width-1)),
     }
 }
 
@@ -238,7 +238,7 @@ func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
         err = oled.writeCommands(
             SSD1306_CMD_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
             pageAddress.PageStart,
-            SSD1306_CMD_SET_PAGE_ADDRESS, 0, oled.pagesCount - 1,
+            SSD1306_CMD_SET_PAGE_ADDRESS, 0, oled.pagesCount-1,
         )
     }
 
@@ -253,7 +253,7 @@ func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
         )
     default:
         err = oled.writeCommands(
-            SSD1306_CMD_SET_COLUMN_ADDRESS, 0, oled.width - 1,
+            SSD1306_CMD_SET_COLUMN_ADDRESS, 0, oled.width-1,
             pageAddress.LowerStartColumn, pageAddress.UpperStartColumn,
         )
     }
