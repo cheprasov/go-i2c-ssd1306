@@ -16,3 +16,13 @@ func MaxUint8(ints ...uint8) uint8 {
     }
     return max;
 }
+
+func MinUint8(ints ...uint8) uint8 {
+    var min = ints[0];
+    for _, v := range ints {
+        if v < min {
+            min = v
+        }
+    }
+    return min;
+}

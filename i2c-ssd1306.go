@@ -217,11 +217,11 @@ func (oled *SSD1306) getPageAddress(page, offset, pages, width uint8) *PageAddre
     return &PageAddressType{
         PageStart:          SSD1306_PAGE_START_ADDRESS_0 + page,
         PageAddressStart:   page,
-        PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MaxUint8(page+pages, oled.pagesCount-1)),
+        PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MinUint8(page+pages, oled.pagesCount-1)),
         LowerStartColumn:   offset & 0xF,
         UpperStartColumn:   (offset & 0xF0) >> 4,
         ColumnAddressStart: offset,
-        ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MaxUint8(offset+width, oled.width-1)),
+        ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MinUint8(offset+width, oled.width-1)),
     }
 }
 
@@ -382,7 +382,7 @@ func draw(oled *SSD1306) {
         log.Fatal(err)
     }
 
-    err = oled.DrawImage(&img, 0, 0)
+    err = oled.DrawImage(&img, 4, 32)
     if err != nil {
         log.Fatal(err)
     }
