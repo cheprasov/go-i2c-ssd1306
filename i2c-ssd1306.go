@@ -317,35 +317,38 @@ func (oled *SSD1306) PrintText(text string, row, offset uint8) error {
     return nil
 }
 
-func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset uint8) error {
+func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset, pages, width uint8) error {
     var err error
     var img = *imgPointer;
-    imgWidth := uint8(img.Bounds().Max.X - img.Bounds().Min.X)
+    if width == 0 {
+        width = uint8(img.Bounds().Max.X - img.Bounds().Min.X)
+    }
+    if width > oled.width {
+        width = oled.width
+    }
+    if width+offset > oled.width {
+        width = oled.width - offset
+    }
+
     imgHeight := uint8(img.Bounds().Max.Y - img.Bounds().Min.Y)
-
-    if imgWidth > oled.width {
-        imgWidth = oled.width
+    if pages == 0 {
+        pages = imgHeight / SSD1306_PAGE_SIZE
+        if imgHeight%SSD1306_PAGE_SIZE != 0 {
+            pages += 1
+        }
     }
-    if imgWidth + offset > oled.width {
-        imgWidth = oled.width - offset
-    }
-
-    imgPages := imgHeight / SSD1306_PAGE_SIZE
-    if imgHeight%SSD1306_PAGE_SIZE != 0 {
-        imgPages += 1
-    }
-    if imgHeight + page > SSD1306_PAGE_SIZE {
-        imgHeight = SSD1306_PAGE_SIZE - page
+    if pages+page > SSD1306_PAGE_SIZE {
+        pages = SSD1306_PAGE_SIZE - page
     }
 
-    err = oled.setPageAddress(oled.getPageAddress(page, offset, imgPages, imgWidth));
+    err = oled.setPageAddress(oled.getPageAddress(page, offset, pages, width));
     if err != nil {
         return err
     }
 
     var currentPage, pixels, pageY, x, y uint8;
-    for currentPage = 0; currentPage < imgPages; currentPage++ {
-        for x = 0; x < imgWidth; x++ {
+    for currentPage = 0; currentPage < pages; currentPage++ {
+        for x = 0; x < width; x++ {
             pixels = 0
             for pageY = 0; pageY < SSD1306_PAGE_SIZE; pageY++ {
                 y = currentPage*SSD1306_PAGE_SIZE + pageY;
@@ -385,7 +388,7 @@ func draw(oled *SSD1306) {
         log.Fatal(err)
     }
 
-    err = oled.DrawImage(&img, 4, 32)
+    err = oled.DrawImage(&img, 0, 0, 0, 0)
     if err != nil {
         log.Fatal(err)
     }
