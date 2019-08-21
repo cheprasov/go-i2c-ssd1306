@@ -254,7 +254,7 @@ func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
     default:
         err = oled.writeCommands(
             SSD1306_CMD_SET_COLUMN_ADDRESS, 0, oled.width - 1,
-            pageAddress.LowerStartColumn, pageAddress.LowerStartColumn,
+            pageAddress.LowerStartColumn, pageAddress.UpperStartColumn,
         )
     }
 
@@ -376,7 +376,7 @@ func (oled *SSD1306) DrawImage(imgPointer *image.Image, page, offset, pages, wid
 }
 
 func gopherPNG() ([]byte, error) {
-    return ioutil.ReadFile("./imgs/marilyn_monroe.png")
+    return ioutil.ReadFile("./imgs/gopher.png")
 }
 
 func draw(oled *SSD1306) {
