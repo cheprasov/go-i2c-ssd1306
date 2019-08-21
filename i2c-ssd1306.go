@@ -238,6 +238,7 @@ func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
         err = oled.writeCommands(
             SSD1306_CMD_MEMORY_MODE, SSD1306_MEMORY_MODE_HORIZONTAL_ADDRESSING,
             pageAddress.PageStart,
+            SSD1306_CMD_SET_PAGE_ADDRESS, 0, oled.pagesCount - 1,
         )
     }
 
@@ -251,7 +252,10 @@ func (oled *SSD1306) setPageAddress(pageAddress *PageAddressType) error {
             SSD1306_CMD_SET_COLUMN_ADDRESS, pageAddress.ColumnAddressStart, pageAddress.ColumnAddressEnd,
         )
     default:
-        err = oled.writeCommands(pageAddress.LowerStartColumn, pageAddress.LowerStartColumn)
+        err = oled.writeCommands(
+            SSD1306_CMD_SET_COLUMN_ADDRESS, 0, oled.width - 1,
+            pageAddress.LowerStartColumn, pageAddress.LowerStartColumn,
+        )
     }
 
     if err != nil {
