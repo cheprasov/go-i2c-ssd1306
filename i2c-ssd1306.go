@@ -218,8 +218,8 @@ func (oled *SSD1306) getPageAddress(page, offset, pages, width uint8) *PageAddre
         PageStart:          SSD1306_PAGE_START_ADDRESS_0 + page,
         PageAddressStart:   page,
         PageAddressEnd:     helpers.IfUint8(pages == 0, 0, helpers.MinUint8(page+pages-1, oled.pagesCount-1)),
-        LowerStartColumn:   offset & 0xF,
-        UpperStartColumn:   (offset & 0xF0) >> 4,
+        LowerStartColumn:   SSD1306_CMD_SET_LOW_COLUMN + (offset & 0x0F),
+        UpperStartColumn:   SSD1306_CMD_SET_HIGH_COLUMN + ((offset & 0xF0) >> 4),
         ColumnAddressStart: offset,
         ColumnAddressEnd:   helpers.IfUint8(width == 0, 0, helpers.MinUint8(offset+width-1, oled.width-1)),
     }
